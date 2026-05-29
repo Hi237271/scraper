@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import json
 import pandas as pd
 import os
+from datetime import datetime
 
 
 def getZestimate(address):
@@ -11,10 +12,10 @@ def getZestimate(address):
             "x-realtyapi-key": os.getenv('ZILLOW_API_KEY')
         }, params={"propertyaddress": address})
         data = response.json()
+        return data['propertyDetails']['zestimate']
     except:
         print("Couldn't get zestimate for address", address)
-        return 'null'
-    return data['propertyDetails']['zestimate']
+    return 'null'
 
 
 def getChildren(l):
@@ -42,9 +43,14 @@ for val in list(filter(lambda a: a != '\n', l.contents[1:])):
                 time = 'null'
                 print(f"INFO: {info}")
                 print('exception. error: ', e)
+            if title[0] != 'T':
+                date = title[12:len(title)-2]
+            else:
+                date = 'Today'
             data.append(
                 {
-                    'date': title[12:len(title)] if title[0] != 'T' else 'Today',
+                    'date': str(datetime.strptime(
+                        date, "%B %d").replace(year=2026).strftime('%m/%d/%y')),
                     'time': time,
                     'address': auction.select_one('.card-title').get_text(),
                     'deposit': bid[13:len(bid)],
@@ -53,7 +59,7 @@ for val in list(filter(lambda a: a != '\n', l.contents[1:])):
             )
         title = val.contents[1].get_text().strip()
     except Exception as e:
-        print(e)
+        print('error: ', e)
 with open('out.json', 'w') as file:
     file.write(json.dumps(data, indent=4, sort_keys=True))
 response = requests.get(
@@ -84,7 +90,7 @@ for a in l:
                     "time": vals[0].get_text(),
                     "address": vals[1].get_text(),
                     "deposit": vals[2].get_text(),
-                    'zestimate': getZestimate(auction.select_one('.card-title').get_text())
+                    'zestimate': getZestimate(vals[1].get_text())
                 }
             )
         except Exception as e:
